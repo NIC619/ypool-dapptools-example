@@ -62,4 +62,48 @@ contract RRC is RRCTest {
         assertEq(rebalanceRewardRate, 0);
         assertEq(rebalanceReward, 0);
     }
+
+    function testReward(uint256 prevFromChainPCV, uint256 amountIn, uint256 prevToChainPCV, uint256 amountOut) public {
+        uint256 prevTotalPCV = 1000 * 10 ** 4 * 10 ** 18;
+        // If from chain PCV > total PCV, skip
+        if(prevFromChainPCV > prevTotalPCV) return;
+        // If to chain PCV > total PCV, skip
+        if(prevToChainPCV > prevTotalPCV) return;
+        // If from chain PCV + to chain PCV > total PCV, skip
+        if(prevFromChainPCV + prevToChainPCV > prevTotalPCV) return;
+        // If from chain PCV + to chain PCV < 1% of total PCV, skip
+        if(prevFromChainPCV + prevToChainPCV < prevTotalPCV / BPS) return;
+        // If amount in > from chain PCV, skip
+        if(amountIn > prevFromChainPCV) return;
+        // If amount out > to chain PCV, skip
+        if(amountOut > prevToChainPCV) return;
+
+        localVar memory v;
+        (
+            v.oldFromToPCVProduct,
+            v.newFromToPCVProduct,
+            v.rebalanceRewardRate,
+            v.rebalanceReward
+        ) = rrc.calculate(
+                xyUSDValueDecimals,
+                swapFeeAmount,
+                xyTokenUSDValue,
+                prevTotalPCV,
+                prevFromChainPCV,
+                amountIn,
+                prevToChainPCV,
+                amountOut
+            );
+
+        assertEq(v.oldFromToPCVProduct, prevFromChainPCV * prevToChainPCV);
+        assertEq(v.newFromToPCVProduct, (prevFromChainPCV + amountIn) * (prevToChainPCV - amountOut));
+        if (v.oldFromToPCVProduct < v.newFromToPCVProduct) {
+            assertGt(v.rebalanceRewardRate, 0);
+            assertLe(v.rebalanceRewardRate, BPS);
+            assertGt(v.rebalanceReward, 0);
+        } else {
+            assertEq(v.rebalanceRewardRate, 0);
+            assertEq(v.rebalanceReward, 0);
+        }
+    }
 }
