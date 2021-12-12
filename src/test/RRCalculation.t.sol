@@ -70,10 +70,80 @@ contract RRC is RRCTest {
         emit log_named_uint("newFromToPCVProduct", r.newFromToPCVProduct);
         emit log_named_uint("rebalanceRewardRate", r.rebalanceRewardRate);
         emit log_named_uint("rebalanceReward", r.rebalanceReward);
-        assertEq(r.oldFromToPCVProduct, p.prevFromChainPCV * p.prevToChainPCV);
-        assertEq(r.newFromToPCVProduct, (p.prevFromChainPCV + p.amountIn) * (p.prevToChainPCV - p.amountOut));
         assertEq(r.rebalanceRewardRate, 0);
         assertEq(r.rebalanceReward, 0);
+
+        p.fromChainWeight = 1;
+        p.toChainWeight = 1;
+        // Test weightedCalculate
+        (
+            r.oldFromToPCVProduct,
+            r.newFromToPCVProduct,
+            r.rebalanceRewardRate,
+            r.rebalanceReward
+        ) = rrc.weightedCalculate(
+                xyUSDValueDecimals,
+                swapFeeAmount,
+                xyTokenUSDValue,
+                p.prevTotalPCV,
+                p.prevFromChainPCV,
+                p.fromChainWeight,
+                p.amountIn,
+                p.prevToChainPCV,
+                p.toChainWeight,
+                p.amountOut
+            );
+
+        emit log_named_uint("oldFromToPCVProduct", r.oldFromToPCVProduct);
+        emit log_named_uint("newFromToPCVProduct", r.newFromToPCVProduct);
+        emit log_named_uint("rebalanceRewardRate", r.rebalanceRewardRate);
+        emit log_named_uint("rebalanceReward", r.rebalanceReward);
+        assertEq(r.rebalanceRewardRate, 0);
+        assertEq(r.rebalanceReward, 0);
+    }
+
+    function testGetReward() public {
+        Param memory p;
+        p.prevTotalPCV = 1000 * 10 ** 4 * 10 ** 18;
+        p.prevFromChainPCV = 60 * 10 ** 4 * 10 ** 18;
+        p.amountIn = 2000 * 10 ** 18;
+        p.prevToChainPCV = 40 * 10 ** 4 * 10 ** 18;
+        p.amountOut = 1500 * 10 ** 18;
+
+        p.fromChainWeight = 4;
+        p.toChainWeight = 1;
+        Ret memory r;
+        (
+            r.oldFromToPCVProduct,
+            r.newFromToPCVProduct,
+            r.rebalanceRewardRate,
+            r.rebalanceReward
+        ) = rrc.weightedCalculate(
+                xyUSDValueDecimals,
+                swapFeeAmount,
+                xyTokenUSDValue,
+                p.prevTotalPCV,
+                p.prevFromChainPCV,
+                p.fromChainWeight,
+                p.amountIn,
+                p.prevToChainPCV,
+                p.toChainWeight,
+                p.amountOut
+            );
+
+        emit log_named_uint("oldFromToPCVProduct", r.oldFromToPCVProduct);
+        emit log_named_uint("newFromToPCVProduct", r.newFromToPCVProduct);
+        emit log_named_uint("rebalanceRewardRate", r.rebalanceRewardRate);
+        emit log_named_uint("rebalanceReward", r.rebalanceReward);
+        assertGt(r.rebalanceRewardRate, 0);
+        // if (r.rebalanceRewardRate > REBALANCE_REWARD_RATE_THRESHOLD) {
+        //     assertGt(r.rebalanceReward, 0);
+        // } else {
+        //     assertEq(r.rebalanceReward, 0);
+        // }
+        // rebalanceRewardRate < REBALANCE_REWARD_RATE_THRESHOLD
+        assertEq(r.rebalanceReward, 0);
+
     }
 
     // Fuzz reward calculation with input values with their decimals being 0 and multiply them by 10**18 before passing them in
