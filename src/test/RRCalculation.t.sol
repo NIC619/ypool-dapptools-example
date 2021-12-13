@@ -76,20 +76,19 @@ contract RRC is RRCTest {
         assertEq(r.rebalanceReward, 0);
     }
 
-    function testReward(uint256 prevFromChainPCV, uint256 amountIn, uint256 prevToChainPCV, uint256 amountOut) public {
-        uint256 prevTotalPCV = 1000 * 10 ** 4 * 10 ** 18;
-        // If from chain PCV > total PCV, skip
-        if(prevFromChainPCV > prevTotalPCV) return;
-        // If to chain PCV > total PCV, skip
-        if(prevToChainPCV > prevTotalPCV) return;
-        // If from chain PCV + to chain PCV > total PCV, skip
-        if(prevFromChainPCV + prevToChainPCV > prevTotalPCV) return;
-        // If from chain PCV + to chain PCV < 1% of total PCV, skip
-        if(prevFromChainPCV + prevToChainPCV < prevTotalPCV / BPS) return;
-        // If amount in > from chain PCV, skip
-        if(amountIn > prevFromChainPCV) return;
+    // Fuzz reward calculation with input values with their decimals being 0 and multiply them by 10**18 before passing them in
+    function testRewardNoDecimal(uint32 prevFromChainPCV, uint32 amountIn, uint32 prevToChainPCV, uint32 amountOut) public {
+        // If to chain PCV == 0, skip
+        if(prevToChainPCV == 0) return;
         // If amount out > to chain PCV, skip
-        if(amountOut > prevToChainPCV) return;
+        if (amountOut > prevToChainPCV) return;
+        Param memory p;
+        // Set total PCV to 10 times the sum of from chain PCV and to chain PCV
+        p.prevTotalPCV = (uint256(prevFromChainPCV) + uint256(prevToChainPCV)) * 10 * 10**18;
+        p.prevFromChainPCV = uint256(prevFromChainPCV) * 10 ** 18;
+        p.amountIn = uint256(amountIn) * 10 ** 18;
+        p.prevToChainPCV = uint256(prevToChainPCV) * 10 ** 18;
+        p.amountOut = uint256(amountOut) * 10 ** 18;
 
         Ret memory r;
         (
@@ -101,17 +100,65 @@ contract RRC is RRCTest {
                 xyUSDValueDecimals,
                 swapFeeAmount,
                 xyTokenUSDValue,
-                prevTotalPCV,
-                prevFromChainPCV,
-                amountIn,
-                prevToChainPCV,
-                amountOut
+                p.prevTotalPCV,
+                p.prevFromChainPCV,
+                p.amountIn,
+                p.prevToChainPCV,
+                p.amountOut
             );
 
-        if (r.oldFromToPCVProduct < r.newFromToPCVProduct) {
+        if ((r.oldFromToPCVProduct < r.newFromToPCVProduct) && ((r.newFromToPCVProduct - r.oldFromToPCVProduct) >= r.oldFromToPCVProduct / REBALANCE_REWARD_RATE_THRESHOLD)) {
             assertGt(r.rebalanceRewardRate, 0);
             assertLe(r.rebalanceRewardRate, BPS);
-            assertGt(r.rebalanceReward, 0);
+            if (r.rebalanceRewardRate >= REBALANCE_REWARD_RATE_THRESHOLD) {
+                assertGt(r.rebalanceReward, 0);
+            } else {
+                assertEq(r.rebalanceReward, 0);
+            }
+        } else {
+            assertEq(r.rebalanceRewardRate, 0);
+            assertEq(r.rebalanceReward, 0);
+        }
+    }
+
+    function testReward(uint88 prevFromChainPCV, uint88 amountIn, uint88 prevToChainPCV, uint88 amountOut) public {
+        // If to chain PCV == 0, skip
+        if(prevToChainPCV == 0) return;
+        // If amount out > to chain PCV, skip
+        if(amountOut > prevToChainPCV) return;
+        Param memory p;
+        // Set total PCV to 10 times the sum of from chain PCV and to chain PCV
+        p.prevTotalPCV = (uint256(prevFromChainPCV) + uint256(prevToChainPCV)) * 10;
+        p.prevFromChainPCV = uint256(prevFromChainPCV);
+        p.amountIn = uint256(amountIn);
+        p.prevToChainPCV = uint256(prevToChainPCV);
+        p.amountOut = uint256(amountOut);
+
+        Ret memory r;
+        (
+            r.oldFromToPCVProduct,
+            r.newFromToPCVProduct,
+            r.rebalanceRewardRate,
+            r.rebalanceReward
+        ) = rrc.calculate(
+                xyUSDValueDecimals,
+                swapFeeAmount,
+                xyTokenUSDValue,
+                p.prevTotalPCV,
+                p.prevFromChainPCV,
+                p.amountIn,
+                p.prevToChainPCV,
+                p.amountOut
+            );
+
+        if ((r.oldFromToPCVProduct < r.newFromToPCVProduct) && ((r.newFromToPCVProduct - r.oldFromToPCVProduct) >= r.oldFromToPCVProduct / REBALANCE_REWARD_RATE_THRESHOLD)) {
+            assertGt(r.rebalanceRewardRate, 0);
+            assertLe(r.rebalanceRewardRate, BPS);
+            if (r.rebalanceRewardRate >= REBALANCE_REWARD_RATE_THRESHOLD) {
+                assertGt(r.rebalanceReward, 0);
+            } else {
+                assertEq(r.rebalanceReward, 0);
+            }
         } else {
             assertEq(r.rebalanceRewardRate, 0);
             assertEq(r.rebalanceReward, 0);
