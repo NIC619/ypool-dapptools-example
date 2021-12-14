@@ -136,14 +136,61 @@ contract RRC is RRCTest {
         emit log_named_uint("rebalanceRewardRate", r.rebalanceRewardRate);
         emit log_named_uint("rebalanceReward", r.rebalanceReward);
         assertGt(r.rebalanceRewardRate, 0);
-        // if (r.rebalanceRewardRate > REBALANCE_REWARD_RATE_THRESHOLD) {
-        //     assertGt(r.rebalanceReward, 0);
-        // } else {
-        //     assertEq(r.rebalanceReward, 0);
-        // }
-        // rebalanceRewardRate < REBALANCE_REWARD_RATE_THRESHOLD
         assertEq(r.rebalanceReward, 0);
 
+    }
+
+    function testChainWeight(uint8 fromChainWeight, uint8 toChainWeight, uint32 prevFromChainPCV, uint32 amountIn, uint32 prevToChainPCV, uint32 amountOut) public {
+        if (fromChainWeight == 0) return;
+        if (toChainWeight == 0) return;
+        if (fromChainWeight > rrc.MAX_CHAIN_WEIGHT()) return;
+        if (toChainWeight > rrc.MAX_CHAIN_WEIGHT()) return;
+        // If to chain PCV == 0, skip
+        if(prevToChainPCV == 0) return;
+        // If amount out > to chain PCV, skip
+        if (amountOut > prevToChainPCV) return;
+        Param memory p;
+        // Set total PCV to 10 times the sum of from chain PCV and to chain PCV
+        p.prevTotalPCV = (uint256(prevFromChainPCV) + uint256(prevToChainPCV)) * 10 * 10**18;
+        p.prevFromChainPCV = uint256(prevFromChainPCV) * 10 ** 18;
+        p.amountIn = uint256(amountIn) * 10 ** 18;
+        p.prevToChainPCV = uint256(prevToChainPCV) * 10 ** 18;
+        p.amountOut = uint256(amountOut) * 10 ** 18;
+        p.fromChainWeight = fromChainWeight;
+        p.toChainWeight = toChainWeight;
+
+        // Test calculate
+        Ret memory r;
+        (
+            r.oldFromToPCVProduct,
+            r.newFromToPCVProduct,
+            r.rebalanceRewardRate,
+            r.rebalanceReward
+        ) = rrc.weightedCalculate(
+                xyUSDValueDecimals,
+                swapFeeAmount,
+                xyTokenUSDValue,
+                p.prevTotalPCV,
+                p.prevFromChainPCV,
+                p.fromChainWeight,
+                p.amountIn,
+                p.prevToChainPCV,
+                p.toChainWeight,
+                p.amountOut
+            );
+
+        if ((r.oldFromToPCVProduct < r.newFromToPCVProduct) && ((r.newFromToPCVProduct - r.oldFromToPCVProduct) >= r.oldFromToPCVProduct / REBALANCE_REWARD_RATE_THRESHOLD)) {
+            assertGt(r.rebalanceRewardRate, 0);
+            assertLe(r.rebalanceRewardRate, BPS);
+            if (r.rebalanceRewardRate >= REBALANCE_REWARD_RATE_THRESHOLD) {
+                assertGt(r.rebalanceReward, 0);
+            } else {
+                assertEq(r.rebalanceReward, 0);
+            }
+        } else {
+            assertEq(r.rebalanceRewardRate, 0);
+            assertEq(r.rebalanceReward, 0);
+        }
     }
 
     // Fuzz reward calculation with input values with their decimals being 0 and multiply them by 10**18 before passing them in
