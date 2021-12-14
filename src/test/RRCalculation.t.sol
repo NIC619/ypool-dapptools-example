@@ -104,11 +104,11 @@ contract RRC is RRCTest {
 
     function testGetReward() public {
         Param memory p;
-        p.prevTotalPCV = 1000 * 10 ** 4 * 10 ** 18;
-        p.prevFromChainPCV = 60 * 10 ** 4 * 10 ** 18;
-        p.amountIn = 2000 * 10 ** 18;
-        p.prevToChainPCV = 40 * 10 ** 4 * 10 ** 18;
-        p.amountOut = 1500 * 10 ** 18;
+        p.prevTotalPCV = 100 * 10 ** 4 * 10 ** 18;
+        p.prevFromChainPCV = 40 * 10 ** 4 * 10 ** 18;
+        p.amountIn = 3 * 10 ** 4 * 10 ** 18;
+        p.prevToChainPCV = 60 * 10 ** 4 * 10 ** 18;
+        p.amountOut = 2 * 10 ** 4 * 10 ** 18;
 
         p.fromChainWeight = 4;
         p.toChainWeight = 1;
@@ -136,8 +136,22 @@ contract RRC is RRCTest {
         emit log_named_uint("rebalanceRewardRate", r.rebalanceRewardRate);
         emit log_named_uint("rebalanceReward", r.rebalanceReward);
         assertGt(r.rebalanceRewardRate, 0);
-        assertEq(r.rebalanceReward, 0);
+        assertGt(r.rebalanceReward, 0);
+    }
 
+    function _checkReward(Ret memory r) internal {
+        if ((r.oldFromToPCVProduct < r.newFromToPCVProduct) && ((r.newFromToPCVProduct - r.oldFromToPCVProduct) >= r.oldFromToPCVProduct / REBALANCE_REWARD_RATE_THRESHOLD)) {
+            assertGt(r.rebalanceRewardRate, 0);
+            assertLe(r.rebalanceRewardRate, BPS);
+            if (r.rebalanceRewardRate >= REBALANCE_REWARD_RATE_THRESHOLD) {
+                assertGt(r.rebalanceReward, 0);
+            } else {
+                assertEq(r.rebalanceReward, 0);
+            }
+        } else {
+            assertEq(r.rebalanceRewardRate, 0);
+            assertEq(r.rebalanceReward, 0);
+        }
     }
 
     function testChainWeight(uint8 fromChainWeight, uint8 toChainWeight, uint32 prevFromChainPCV, uint32 amountIn, uint32 prevToChainPCV, uint32 amountOut) public {
@@ -179,18 +193,7 @@ contract RRC is RRCTest {
                 p.amountOut
             );
 
-        if ((r.oldFromToPCVProduct < r.newFromToPCVProduct) && ((r.newFromToPCVProduct - r.oldFromToPCVProduct) >= r.oldFromToPCVProduct / REBALANCE_REWARD_RATE_THRESHOLD)) {
-            assertGt(r.rebalanceRewardRate, 0);
-            assertLe(r.rebalanceRewardRate, BPS);
-            if (r.rebalanceRewardRate >= REBALANCE_REWARD_RATE_THRESHOLD) {
-                assertGt(r.rebalanceReward, 0);
-            } else {
-                assertEq(r.rebalanceReward, 0);
-            }
-        } else {
-            assertEq(r.rebalanceRewardRate, 0);
-            assertEq(r.rebalanceReward, 0);
-        }
+        _checkReward(r);
     }
 
     // Fuzz reward calculation with input values with their decimals being 0 and multiply them by 10**18 before passing them in
@@ -224,18 +227,7 @@ contract RRC is RRCTest {
                 p.amountOut
             );
 
-        if ((r.oldFromToPCVProduct < r.newFromToPCVProduct) && ((r.newFromToPCVProduct - r.oldFromToPCVProduct) >= r.oldFromToPCVProduct / REBALANCE_REWARD_RATE_THRESHOLD)) {
-            assertGt(r.rebalanceRewardRate, 0);
-            assertLe(r.rebalanceRewardRate, BPS);
-            if (r.rebalanceRewardRate >= REBALANCE_REWARD_RATE_THRESHOLD) {
-                assertGt(r.rebalanceReward, 0);
-            } else {
-                assertEq(r.rebalanceReward, 0);
-            }
-        } else {
-            assertEq(r.rebalanceRewardRate, 0);
-            assertEq(r.rebalanceReward, 0);
-        }
+        _checkReward(r);
     }
 
     function testReward(uint88 prevFromChainPCV, uint88 amountIn, uint88 prevToChainPCV, uint88 amountOut) public {
@@ -268,17 +260,6 @@ contract RRC is RRCTest {
                 p.amountOut
             );
 
-        if ((r.oldFromToPCVProduct < r.newFromToPCVProduct) && ((r.newFromToPCVProduct - r.oldFromToPCVProduct) >= r.oldFromToPCVProduct / REBALANCE_REWARD_RATE_THRESHOLD)) {
-            assertGt(r.rebalanceRewardRate, 0);
-            assertLe(r.rebalanceRewardRate, BPS);
-            if (r.rebalanceRewardRate >= REBALANCE_REWARD_RATE_THRESHOLD) {
-                assertGt(r.rebalanceReward, 0);
-            } else {
-                assertEq(r.rebalanceReward, 0);
-            }
-        } else {
-            assertEq(r.rebalanceRewardRate, 0);
-            assertEq(r.rebalanceReward, 0);
-        }
+        _checkReward(r);
     }
 }
