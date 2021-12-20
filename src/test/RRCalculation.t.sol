@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "ds-test/test.sol";
 
-import "../RebalanceRewardCalculation.sol";
+import "../settlement-chain/RebalanceRewardCalculation.sol";
 import "./utils/Hevm.sol";
 
 abstract contract RRCTest is DSTest {
